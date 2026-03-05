@@ -48,7 +48,14 @@ void main() async {
 
   final router = Router();
 
-  // Health check
+  // Root / health check
+  router.get('/', (Request request) {
+    return Response.ok(
+      jsonEncode({'status': 'ok', 'service': 'delini-backend', 'timestamp': DateTime.now().toIso8601String()}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  });
+
   router.get('/health', (Request request) {
     return Response.ok(
       jsonEncode({'status': 'ok', 'timestamp': DateTime.now().toIso8601String()}),
