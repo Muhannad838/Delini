@@ -19,16 +19,18 @@ class AppointmentAdapter extends TypeAdapter<Appointment> {
     return Appointment(
       id: fields[0] as String,
       hospitalId: fields[1] as String,
-      destinationId: fields[2] as String,
+      destinationId: fields[2] as String?,
       date: fields[3] as String,
       time: fields[4] as String,
+      patientName: (fields[5] as String?) ?? '',
+      clinicName: (fields[6] as String?) ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, Appointment obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +40,11 @@ class AppointmentAdapter extends TypeAdapter<Appointment> {
       ..writeByte(3)
       ..write(obj.date)
       ..writeByte(4)
-      ..write(obj.time);
+      ..write(obj.time)
+      ..writeByte(5)
+      ..write(obj.patientName)
+      ..writeByte(6)
+      ..write(obj.clinicName);
   }
 
   @override

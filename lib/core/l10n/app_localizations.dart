@@ -201,8 +201,8 @@ class AppLocalizations {
   // Appointments screen
   String get minutes => _t('min walk', 'دقيقة مشي');
   String get noAppointmentsDesc =>
-      _t('Tap + to create your first appointment',
-          'اضغط + لإنشاء أول موعد لك');
+      _t('Tap + to add your first appointment reminder',
+          'اضغط + لإضافة أول تذكير موعد');
 
   // Emergency screen
   String get emergencyRouteInfo =>
@@ -243,8 +243,16 @@ class AppLocalizations {
   String get upcomingAppointments =>
       _t('Upcoming Appointments', 'المواعيد القادمة');
   String get appointmentTip =>
-      _t('Arrive 15 minutes before your appointment to complete check-in procedures.',
-          'احضر قبل 15 دقيقة من موعدك لإتمام إجراءات التسجيل.');
+      _t('This is a reminder for your existing hospital appointment. Arrive 15 minutes early.',
+          'هذا تذكير لموعدك الحالي في المستشفى. احضر قبل ١٥ دقيقة.');
+
+  // Add Appointment (reminder system)
+  String get addAppointment => _t('Add Appointment', 'إضافة موعد');
+  String get patientName => _t('Patient Name', 'اسم المريض');
+  String get patientNameHint => _t('Enter your name', 'أدخل اسمك');
+  String get clinicName => _t('Clinic / Department', 'العيادة / القسم');
+  String get clinicNameHint =>
+      _t('e.g. Cardiology, Room 201...', 'مثل: قسم القلب، غرفة ٢٠١...');
 
   // Add Hospital (AI generation)
   String get addHospital => _t('Add Hospital', 'إضافة مستشفى');

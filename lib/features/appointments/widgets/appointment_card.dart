@@ -76,7 +76,6 @@ class _AppointmentCardState extends ConsumerState<AppointmentCard> {
     final isAccessible = settings.accessibilityMode;
 
     final hospital = repo.getById(widget.appointment.hospitalId);
-    final dest = repo.findDestinationById(widget.appointment.destinationId);
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -119,14 +118,28 @@ class _AppointmentCardState extends ConsumerState<AppointmentCard> {
               ),
               const SizedBox(height: 8),
               // Clinic name
-              if (dest != null)
+              Text(
+                widget.appointment.clinicName.isNotEmpty
+                    ? widget.appointment.clinicName
+                    : '-',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: isAccessible ? 14 : 13,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              // Patient name
+              if (widget.appointment.patientName.isNotEmpty)
                 Text(
-                  dest.name.get(settings.language),
+                  widget.appointment.patientName,
                   style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.darkBlue : AppColors.blue,
                     fontWeight: FontWeight.w600,
-                    fontSize: isAccessible ? 14 : 13,
+                    fontSize: isAccessible ? 12 : 11,
                   ),
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               const SizedBox(height: 2),

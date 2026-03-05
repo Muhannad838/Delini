@@ -11,7 +11,7 @@ class Appointment extends HiveObject {
   final String hospitalId;
 
   @HiveField(2)
-  final String destinationId;
+  final String? destinationId; // nullable — legacy field
 
   @HiveField(3)
   final String date; // yyyy-MM-dd
@@ -19,11 +19,19 @@ class Appointment extends HiveObject {
   @HiveField(4)
   final String time; // HH:mm
 
+  @HiveField(5)
+  final String patientName;
+
+  @HiveField(6)
+  final String clinicName; // free text
+
   Appointment({
     required this.id,
     required this.hospitalId,
-    required this.destinationId,
+    this.destinationId,
     required this.date,
     required this.time,
+    required this.patientName,
+    required this.clinicName,
   });
 }

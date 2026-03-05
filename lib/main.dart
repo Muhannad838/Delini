@@ -16,6 +16,15 @@ void main() async {
   // Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
 
+  // One-time migration: clear old appointment data (v1 had no patientName/clinicName)
+  final isV2 = prefs.getBool('hive_appointment_v2') ?? false;
+  if (!isV2) {
+    final box = await Hive.openBox<Appointment>('appointments');
+    await box.clear();
+    await box.close();
+    await prefs.setBool('hive_appointment_v2', true);
+  }
+
   runApp(
     ProviderScope(
       overrides: [

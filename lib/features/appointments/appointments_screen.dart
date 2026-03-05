@@ -56,7 +56,28 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen>
 
   void _navigateToAppointment(Appointment appointment) {
     final repo = ref.read(hospitalRepositoryProvider);
-    final dest = repo.findDestinationById(appointment.destinationId);
+    Destination? dest;
+
+    // Try exact destinationId first (legacy records)
+    if (appointment.destinationId != null) {
+      dest = repo.findDestinationById(appointment.destinationId!);
+    }
+
+    // Fallback: fuzzy match clinicName against destination names
+    if (dest == null && appointment.clinicName.isNotEmpty) {
+      final hospital = repo.getById(appointment.hospitalId);
+      if (hospital != null) {
+        final clinicLower = appointment.clinicName.toLowerCase();
+        for (final d in hospital.allDestinations) {
+          if (d.name.en.toLowerCase().contains(clinicLower) ||
+              d.name.ar.contains(appointment.clinicName)) {
+            dest = d;
+            break;
+          }
+        }
+      }
+    }
+
     if (dest != null) {
       final hospital = repo.getById(appointment.hospitalId);
       if (hospital != null) {
@@ -132,67 +153,76 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen>
     Destination? selectedDest,
   ) {
     final routeInfo = ref.watch(routeInfoProvider);
-    final repo = ref.read(hospitalRepositoryProvider);
-    final dest = repo.findDestinationById(_navigatingTo!.destinationId);
     final isDark = settings.darkMode;
+    final displayName = _navigatingTo!.clinicName.isNotEmpty
+        ? _navigatingTo!.clinicName
+        : (selectedDest?.name.get(settings.language) ?? '-');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          if (dest != null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.greenBg,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: isDark ? Colors.white : const Color(0xFF000000), width: 1.75),
-                      ),
-                      child: const Icon(Icons.local_hospital_outlined, color: AppColors.green, size: 22),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.greenBg,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: isDark ? Colors.white : const Color(0xFF000000), width: 1.75),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                    child: const Icon(Icons.local_hospital_outlined, color: AppColors.green, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 14),
+                        ),
+                        if (_navigatingTo!.patientName.isNotEmpty)
                           Text(
-                            dest.name.get(settings.language),
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 14),
-                          ),
-                          Text(
-                            '${localizeDate(DateTime.parse(_navigatingTo!.date), settings.language)} • ${localizeTime(_navigatingTo!.time, settings.language)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (routeInfo != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${localizeNumber(routeInfo.distanceMeters, settings.language)} ${l10n.meters}',
+                            _navigatingTo!.patientName,
                             style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: isAccessible ? 15 : 14,
                               color: isDark ? AppColors.darkBlue : AppColors.blue,
+                              fontWeight: FontWeight.w600,
+                              fontSize: isAccessible ? 13 : 12,
                             ),
                           ),
-                          Text(
-                            '${localizeNumber(routeInfo.walkMinutes, settings.language)} ${l10n.minutes}',
-                            style: Theme.of(context).textTheme.bodySmall,
+                        Text(
+                          '${localizeDate(DateTime.parse(_navigatingTo!.date), settings.language)} • ${localizeTime(_navigatingTo!.time, settings.language)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (routeInfo != null)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${localizeNumber(routeInfo.distanceMeters, settings.language)} ${l10n.meters}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: isAccessible ? 15 : 14,
+                            color: isDark ? AppColors.darkBlue : AppColors.blue,
                           ),
-                        ],
-                      ),
-                  ],
-                ),
+                        ),
+                        Text(
+                          '${localizeNumber(routeInfo.walkMinutes, settings.language)} ${l10n.minutes}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
+          ),
           const SizedBox(height: 12),
           NavigationMapWidget(
             destination: selectedDest,
@@ -259,7 +289,7 @@ class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen>
                   child: ElevatedButton.icon(
                     onPressed: _showCreateSheet,
                     icon: const Icon(Icons.add, size: 18),
-                    label: Text(l10n.createAppointment),
+                    label: Text(l10n.addAppointment),
                   ),
                 ),
                 const SizedBox(height: 24),

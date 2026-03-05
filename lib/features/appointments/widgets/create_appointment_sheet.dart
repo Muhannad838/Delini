@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/l10n/app_localizations.dart';
+import '../../../core/l10n/l10n_utils.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/models/hospital.dart';
 import '../../../data/models/appointment.dart';
-import '../../../data/models/time_slot.dart';
-import '../../../data/datasources/schedule_data.dart';
+import '../../../data/models/hospital.dart';
 import '../../../providers/settings_provider.dart';
 import '../../../providers/hospital_provider.dart';
 import '../../../providers/appointment_provider.dart';
-import '../../../core/l10n/l10n_utils.dart';
 
 class CreateAppointmentSheet extends ConsumerStatefulWidget {
   const CreateAppointmentSheet({super.key});
@@ -20,10 +18,11 @@ class CreateAppointmentSheet extends ConsumerStatefulWidget {
 }
 
 class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet> {
+  final _patientNameCtrl = TextEditingController();
   String? _selectedHospitalId;
-  Destination? _selectedClinic;
+  Destination? _selectedDest;
   DateTime? _selectedDate;
-  String? _selectedTime;
+  TimeOfDay? _selectedTime;
 
   @override
   void initState() {
@@ -31,29 +30,37 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
     _selectedHospitalId = ref.read(settingsProvider).defaultHospitalId;
   }
 
-  List<Destination> _getClinics() {
+  @override
+  void dispose() {
+    _patientNameCtrl.dispose();
+    super.dispose();
+  }
+
+  List<Destination> _getDestinations() {
     if (_selectedHospitalId == null) return [];
     final hospital = ref.read(hospitalRepositoryProvider).getById(_selectedHospitalId!);
     if (hospital == null) return [];
-    return hospital.allDestinations.where((d) => d.type == DestinationType.clinic).toList();
+    return hospital.allDestinations;
   }
 
-  List<TimeSlot> _getSlots() {
-    if (_selectedClinic == null || _selectedDate == null) return [];
-    return getAvailableSlots(_selectedClinic!.id, _selectedDate!);
-  }
+  bool get _canSave =>
+      _patientNameCtrl.text.trim().isNotEmpty &&
+      _selectedHospitalId != null &&
+      _selectedDest != null &&
+      _selectedDate != null &&
+      _selectedTime != null;
 
   Future<void> _pickDate() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: AppColors.datePalmGreen,
+              primary: AppColors.green,
             ),
           ),
           child: child!,
@@ -61,25 +68,45 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
       },
     );
     if (date != null) {
-      setState(() {
-        _selectedDate = date;
-        _selectedTime = null;
-      });
+      setState(() => _selectedDate = date);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.green,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (time != null) {
+      setState(() => _selectedTime = time);
     }
   }
 
   void _save() {
-    if (_selectedHospitalId == null ||
-        _selectedClinic == null ||
-        _selectedDate == null ||
-        _selectedTime == null) return;
+    if (!_canSave) return;
+
+    final timeStr =
+        '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}';
 
     final appointment = Appointment(
       id: const Uuid().v4(),
       hospitalId: _selectedHospitalId!,
-      destinationId: _selectedClinic!.id,
-      date: '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
-      time: _selectedTime!,
+      destinationId: _selectedDest!.id,
+      date:
+          '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
+      time: timeStr,
+      patientName: _patientNameCtrl.text.trim(),
+      clinicName: _selectedDest!.name.en,
     );
 
     ref.read(appointmentProvider.notifier).add(appointment);
@@ -92,8 +119,9 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
     final hospitals = ref.watch(hospitalsProvider);
     final l10n = AppLocalizations(settings.language);
     final isAccessible = settings.accessibilityMode;
-    final clinics = _getClinics();
-    final slots = _getSlots();
+    final isDark = settings.darkMode;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.border;
+    final destinations = _getDestinations();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -123,27 +151,50 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
               ),
               const SizedBox(height: 16),
               Text(
-                l10n.createAppointment,
+                l10n.addAppointment,
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: isAccessible ? 22 : 20),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
 
+              // Patient Name
+              Text(l10n.patientName,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _patientNameCtrl,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: l10n.patientNameHint,
+                  prefixIcon: const Icon(Icons.person_outline, size: 20),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Hospital selector
-              Text(l10n.selectHospital, style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
+              Text(l10n.selectHospital,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _selectedHospitalId,
-                items: hospitals.map((h) => DropdownMenuItem(
-                  value: h.id,
-                  child: Text(h.name.get(settings.language), style: TextStyle(fontSize: isAccessible ? 15 : 13)),
-                )).toList(),
+                items: hospitals
+                    .map((h) => DropdownMenuItem(
+                          value: h.id,
+                          child: Text(h.name.get(settings.language),
+                              style: TextStyle(fontSize: isAccessible ? 15 : 13)),
+                        ))
+                    .toList(),
                 onChanged: (v) {
                   setState(() {
                     _selectedHospitalId = v;
-                    _selectedClinic = null;
-                    _selectedDate = null;
-                    _selectedTime = null;
+                    _selectedDest = null;
                   });
                 },
                 decoration: InputDecoration(
@@ -153,26 +204,28 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
               ),
               const SizedBox(height: 16),
 
-              // Clinic selector
-              Text(l10n.selectClinic, style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
+              // Clinic / Department dropdown
+              Text(l10n.clinicName,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedClinic?.id,
-                items: clinics.map((c) => DropdownMenuItem(
-                  value: c.id,
-                  child: Text(
-                    '${c.name.get(settings.language)}${c.roomNumber != null ? ' (${c.roomNumber})' : ''}',
-                    style: TextStyle(fontSize: isAccessible ? 15 : 13),
-                  ),
-                )).toList(),
+                value: _selectedDest?.id,
+                items: destinations
+                    .map((d) => DropdownMenuItem(
+                          value: d.id,
+                          child: Text(
+                            '${d.name.get(settings.language)}${d.roomNumber != null ? ' (${d.roomNumber})' : ''}',
+                            style: TextStyle(fontSize: isAccessible ? 15 : 13),
+                          ),
+                        ))
+                    .toList(),
                 onChanged: (v) {
                   setState(() {
-                    _selectedClinic = clinics.firstWhere((c) => c.id == v);
-                    _selectedDate = null;
-                    _selectedTime = null;
+                    _selectedDest = destinations.firstWhere((d) => d.id == v);
                   });
                 },
                 decoration: InputDecoration(
+                  hintText: l10n.selectClinic,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -180,15 +233,16 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
               const SizedBox(height: 16),
 
               // Date picker
-              Text(l10n.selectDate, style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
+              Text(l10n.selectDate,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
               const SizedBox(height: 8),
               InkWell(
-                onTap: _selectedClinic != null ? _pickDate : null,
+                onTap: _pickDate,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
+                    border: Border.all(color: borderColor),
                     borderRadius: BorderRadius.circular(12),
                     color: Theme.of(context).colorScheme.surface,
                   ),
@@ -208,78 +262,36 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
               ),
               const SizedBox(height: 16),
 
-              // Time slots
-              if (_selectedDate != null) ...[
-                Text(l10n.selectTime, style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
-                const SizedBox(height: 8),
-                if (slots.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      l10n.noResults,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
-                    ),
-                  )
-                else
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 2.0,
-                    ),
-                    itemCount: slots.length,
-                    itemBuilder: (context, i) {
-                      final slot = slots[i];
-                      final isSelected = _selectedTime == slot.time;
-                      final isFull = slot.status == SlotStatus.full;
-                      Color bgColor;
-                      Color textColor;
-                      if (isFull) {
-                        bgColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.08);
-                        textColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.3);
-                      } else if (slot.status == SlotStatus.limited) {
-                        bgColor = isSelected ? AppColors.gold : AppColors.gold.withOpacity(0.1);
-                        textColor = isSelected ? Colors.white : AppColors.gold;
-                      } else {
-                        bgColor = isSelected ? AppColors.datePalmGreen : AppColors.datePalmGreen.withOpacity(0.1);
-                        textColor = isSelected ? Colors.white : AppColors.datePalmGreen;
-                      }
-
-                      return Material(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(10),
-                        child: InkWell(
-                          onTap: isFull ? null : () => setState(() => _selectedTime = slot.time),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                localizeTime(slot.time, settings.language),
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: isAccessible ? 13 : 11,
-                                ),
-                              ),
-                              Text(
-                                isFull ? l10n.full : l10n.remaining(slot.remaining),
-                                style: TextStyle(
-                                  color: textColor.withOpacity(0.7),
-                                  fontSize: isAccessible ? 10 : 9,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+              // Time picker
+              Text(l10n.selectTime,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: isAccessible ? 15 : 13)),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _pickTime,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: borderColor),
+                    borderRadius: BorderRadius.circular(12),
+                    color: Theme.of(context).colorScheme.surface,
                   ),
-              ],
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 18),
+                      const SizedBox(width: 12),
+                      Text(
+                        _selectedTime != null
+                            ? localizeTime(
+                                '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+                                settings.language)
+                            : l10n.selectTime,
+                        style: TextStyle(fontSize: isAccessible ? 15 : 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
 
               // Buttons
@@ -294,9 +306,9 @@ class _CreateAppointmentSheetState extends ConsumerState<CreateAppointmentSheet>
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _selectedTime != null ? _save : null,
+                      onPressed: _canSave ? _save : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.datePalmGreen,
+                        backgroundColor: AppColors.green,
                       ),
                       child: Text(l10n.save),
                     ),
