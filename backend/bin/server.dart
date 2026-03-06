@@ -153,6 +153,80 @@ void main() async {
     }
   });
 
+  // Voice command — AI intent parsing
+  router.post('/voice-command', (Request request) async {
+    try {
+      if (apiKey == null || apiKey.isEmpty) {
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'ANTHROPIC_API_KEY not configured'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final body = await request.readAsString();
+      final data = jsonDecode(body) as Map<String, dynamic>;
+
+      final text = data['text'] as String;
+      final language = data['language'] as String? ?? 'en';
+      final hospitalId = data['hospital_id'] as String? ?? 'king-faisal';
+
+      print('Voice command ($language): "$text"');
+
+      final anthropicResponse = await http.post(
+        Uri.parse('https://api.anthropic.com/v1/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: jsonEncode({
+          'model': 'claude-sonnet-4-20250514',
+          'max_tokens': 512,
+          'system': _voiceSystemPrompt(hospitalId),
+          'messages': [
+            {
+              'role': 'user',
+              'content': text,
+            },
+          ],
+        }),
+      );
+
+      if (anthropicResponse.statusCode != 200) {
+        print('Anthropic API error: ${anthropicResponse.statusCode} ${anthropicResponse.body}');
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'Claude API error', 'status': anthropicResponse.statusCode}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final anthropicData = jsonDecode(anthropicResponse.body) as Map<String, dynamic>;
+      final content = anthropicData['content'] as List;
+      final textBlock = content.firstWhere((b) => b['type'] == 'text');
+      var responseText = textBlock['text'] as String;
+
+      responseText = responseText.trim();
+      if (responseText.startsWith('```')) {
+        responseText = responseText.replaceFirst(RegExp(r'^```\w*\n?'), '');
+        responseText = responseText.replaceFirst(RegExp(r'\n?```$'), '');
+      }
+
+      final resultJson = jsonDecode(responseText);
+      print('Voice result: action=${resultJson['action']}, dest=${resultJson['destination_id']}');
+
+      return Response.ok(
+        jsonEncode(resultJson),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('Voice command error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  });
+
   // Determine public directory path (works both locally and in Docker)
   final scriptDir = File(Platform.script.toFilePath()).parent.path;
   var publicDir = '$scriptDir/../public';
@@ -176,7 +250,8 @@ void main() async {
     appHandler = (Request request) async {
       // API routes
       if (request.url.path == 'health' ||
-          request.url.path == 'analyze-floor-plan') {
+          request.url.path == 'analyze-floor-plan' ||
+          request.url.path == 'voice-command') {
         return apiHandler(request);
       }
       // Serve static files, fallback to index.html for SPA routing
@@ -199,6 +274,58 @@ void main() async {
   final server = await io.serve(appHandler, InternetAddress.anyIPv4, port);
   print('Delini backend running on port ${server.port}');
   if (staticHandler != null) print('Serving Flutter web app from $publicDir');
+}
+
+String _voiceSystemPrompt(String hospitalId) {
+  final hospitals = {
+    'king-faisal': '''
+King Faisal Specialist Hospital destinations:
+- Ground Floor: Emergency Department (id: emergency-gf), Main Reception (id: reception-gf), Main Pharmacy (id: pharmacy-gf), Radiology Department (id: radiology-gf), Room 101 (id: room-101), Room 102 (id: room-102)
+- First Floor: Cardiology Clinic (id: cardiology-1f), Neurology Clinic (id: neurology-1f), Orthopedics Clinic (id: orthopedics-1f)
+- Second Floor: Pediatrics Clinic (id: pediatrics-2f), Dermatology Clinic (id: dermatology-2f), ICU Department (id: icu-2f), Room 201 (id: room-201), Room 202 (id: room-202)''',
+    'riyadh-care': '''
+Riyadh Care Hospital destinations:
+- Ground Floor: Emergency Department (id: emergency-rc-gf), Laboratory (id: lab-rc-gf)
+- First Floor: ENT Clinic (id: ent-rc-1f), Ophthalmology Clinic (id: ophthalmology-rc-1f)
+- Second Floor: Surgery Department (id: surgery-rc-2f)''',
+  };
+
+  final hospitalContext = hospitals[hospitalId] ?? hospitals['king-faisal']!;
+
+  return '''
+You are a hospital navigation assistant for Delni (دلني), a hospital indoor navigation app in Saudi Arabia.
+The user is likely elderly and may speak informally or unclearly. Interpret their intent charitably.
+
+$hospitalContext
+
+Today's date is ${DateTime.now().toIso8601String().substring(0, 10)}.
+
+Return ONLY valid JSON, no markdown, no explanation:
+{
+  "action": "visit" | "emergency" | "appointment" | "navigate_appointment" | "navigate" | "unknown",
+  "destination_id": "<id from list above, or null>",
+  "room_number": "<room number if mentioned, or null>",
+  "clinic_name": "<clinic name if mentioned, or null>",
+  "date": "<yyyy-MM-dd format, or null>",
+  "time": "<HH:mm 24h format, or null>",
+  "patient_name": "<patient name if mentioned, or null>",
+  "response_text": "<friendly English response, max 2 sentences, simple words for elderly>",
+  "response_text_ar": "<same message in Arabic>"
+}
+
+Rules:
+- "visit" = user wants to visit a patient in a room (mentions room number, visiting someone)
+- "emergency" = user mentions emergency, accident, someone collapsed, urgent help, طوارئ
+- "appointment" = user wants to CREATE/BOOK a new appointment. Extract ALL details: clinic name, date, time, patient name. Parse relative dates: "tomorrow" = next day, "next Sunday" = correct date, "بكرة" = tomorrow. For clinic_name, try to match the closest clinic from the hospital list above (e.g. "heart doctor" → "Cardiology Clinic", "eye" → "Eye Clinic", "bones" → "Orthopedics Clinic"). Also set destination_id to match.
+- "navigate_appointment" = user wants to GO TO / be directed to an existing appointment they already have. Keywords: "take me to my appointment", "direct me to my appointment", "where is my appointment", "navigate to my appointment", "خذني لموعدي", "وين موعدي"
+- "navigate" = user wants to go to a specific department/clinic/pharmacy (not a patient room, not an appointment)
+- "unknown" = cannot determine intent
+- Be forgiving with room numbers: "room two oh one" → room_number "201"
+- Be forgiving with times: "2 PM" → "14:00", "الساعة ثلاثة" → "15:00"
+- Match destination_id EXACTLY from the list above (e.g. "cardiology-1f", not "cardiology"). Use the exact id in parentheses.
+- Keep response_text warm and simple — this is for elderly users
+- Always provide both English and Arabic responses regardless of input language
+''';
 }
 
 String _guessMediaType(String base64Data) {

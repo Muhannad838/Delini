@@ -9,8 +9,9 @@ import '../../providers/settings_provider.dart';
 
 class VisitorPanel extends ConsumerStatefulWidget {
   final VoidCallback onClose;
+  final String? initialRoomNumber;
 
-  const VisitorPanel({super.key, required this.onClose});
+  const VisitorPanel({super.key, required this.onClose, this.initialRoomNumber});
 
   @override
   ConsumerState<VisitorPanel> createState() => _VisitorPanelState();
@@ -34,6 +35,12 @@ class _VisitorPanelState extends ConsumerState<VisitorPanel>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
+
+    if (widget.initialRoomNumber != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _findRoom(widget.initialRoomNumber!);
+      });
+    }
   }
 
   @override

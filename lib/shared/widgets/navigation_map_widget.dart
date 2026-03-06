@@ -54,6 +54,9 @@ class NavigationMapWidget extends ConsumerStatefulWidget {
 
 class _NavigationMapWidgetState extends ConsumerState<NavigationMapWidget>
     with TickerProviderStateMixin {
+  // Zoom
+  final TransformationController _zoomController = TransformationController();
+
   // Path animation (used for both same-floor and cross-floor path segments)
   late AnimationController _pathController;
   late AnimationController _pulseController;
@@ -232,6 +235,7 @@ class _NavigationMapWidgetState extends ConsumerState<NavigationMapWidget>
 
   @override
   void dispose() {
+    _zoomController.dispose();
     _pathController.dispose();
     _pulseController.dispose();
     _slideController.dispose();
@@ -274,10 +278,19 @@ class _NavigationMapWidgetState extends ConsumerState<NavigationMapWidget>
       mapContent = _buildSameFloorMap(hospital, settings, dest, userFloor);
     }
 
+    // Wrap in InteractiveViewer for pinch-to-zoom
+    final zoomableMap = InteractiveViewer(
+      transformationController: _zoomController,
+      minScale: 0.5,
+      maxScale: 4.0,
+      boundaryMargin: const EdgeInsets.all(200),
+      child: mapContent,
+    );
+
     if (widget.height != null) {
-      return SizedBox(height: widget.height, child: mapContent);
+      return SizedBox(height: widget.height, child: zoomableMap);
     }
-    return mapContent;
+    return zoomableMap;
   }
 
   /// Build the standard same-floor map (path from entrance to destination).

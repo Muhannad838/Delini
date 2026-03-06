@@ -14,6 +14,7 @@ import '../visitor/visitor_panel.dart';
 import '../appointments/appointments_panel.dart';
 import '../emergency/emergency_panel.dart';
 import '../settings/settings_panel.dart';
+import '../voice/voice_panel.dart';
 import 'widgets/popup_overlay.dart';
 
 // ── Icon + color helpers ─────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ Color _chipBgForType(DestinationType type) {
   }
 }
 
-enum _PopupType { none, visitor, appointments, emergency, settings }
+enum _PopupType { none, visitor, appointments, emergency, settings, voice }
 
 class MapBaseScreen extends ConsumerStatefulWidget {
   const MapBaseScreen({super.key});
@@ -75,6 +76,7 @@ class _MapBaseScreenState extends ConsumerState<MapBaseScreen>
   int? _userFloor;
 
   _PopupType _activePopup = _PopupType.none;
+  String? _pendingVisitorRoom;
   late AnimationController _dockSlideController;
   late AnimationController _popupScaleController;
 
@@ -524,35 +526,56 @@ class _MapBaseScreenState extends ConsumerState<MapBaseScreen>
                             ],
                           ),
                           const SizedBox(height: 8),
-                          // Search button
-                          GestureDetector(
-                            onTap: _enterSearchMode,
-                            child: Container(
-                              height: 42,
-                              decoration: BoxDecoration(
-                                color: isDark ? AppColors.darkHighlight : AppColors.highlight,
-                                borderRadius: BorderRadius.circular(21),
-                                border: Border.all(
-                                  color: isDark ? AppColors.darkBorder : AppColors.border,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const SizedBox(width: 14),
-                                  Icon(Icons.search, size: 20, color: subtitleColor),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      l10n.searchDestination,
-                                      style: TextStyle(
-                                        fontSize: 14, color: subtitleColor, fontWeight: FontWeight.w400,
+                          // Search button + mic button
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: _enterSearchMode,
+                                  child: Container(
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppColors.darkHighlight : AppColors.highlight,
+                                      borderRadius: BorderRadius.circular(21),
+                                      border: Border.all(
+                                        color: isDark ? AppColors.darkBorder : AppColors.border,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const SizedBox(width: 14),
+                                        Icon(Icons.search, size: 20, color: subtitleColor),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            l10n.searchDestination,
+                                            style: TextStyle(
+                                              fontSize: 14, color: subtitleColor, fontWeight: FontWeight.w400,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => _openPopup(_PopupType.voice),
+                                child: Container(
+                                  width: 42, height: 42,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.purpleBg,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark ? Colors.white : const Color(0xFF000000), width: 1.5,
+                                    ),
+                                  ),
+                                  child: const Icon(Icons.mic, size: 22, color: AppColors.purple),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -694,6 +717,8 @@ class _MapBaseScreenState extends ConsumerState<MapBaseScreen>
         return l10n.emergency;
       case _PopupType.settings:
         return l10n.settings;
+      case _PopupType.voice:
+        return l10n.voiceAssistant;
       case _PopupType.none:
         return '';
     }
@@ -702,13 +727,44 @@ class _MapBaseScreenState extends ConsumerState<MapBaseScreen>
   Widget _buildPopupContent(AppLocalizations l10n, bool isDark, String lang) {
     switch (_activePopup) {
       case _PopupType.visitor:
-        return VisitorPanel(onClose: _closePopup);
+        final room = _pendingVisitorRoom;
+        _pendingVisitorRoom = null;
+        return VisitorPanel(onClose: _closePopup, initialRoomNumber: room);
       case _PopupType.appointments:
         return AppointmentsPanel(onClose: _closePopup);
       case _PopupType.emergency:
         return EmergencyPanel(onClose: _closePopup);
       case _PopupType.settings:
         return SettingsPanel(onClose: _closePopup);
+      case _PopupType.voice:
+        return VoicePanel(
+          onClose: _closePopup,
+          onOpenPopup: (type, {String? roomNumber}) {
+            _closePopup();
+            Future.delayed(const Duration(milliseconds: 400), () {
+              if (!mounted) return;
+              switch (type) {
+                case 'visitor':
+                  setState(() => _pendingVisitorRoom = roomNumber);
+                  _openPopup(_PopupType.visitor);
+                  break;
+                case 'emergency':
+                  _openPopup(_PopupType.emergency);
+                  break;
+                case 'appointments':
+                  _openPopup(_PopupType.appointments);
+                  break;
+              }
+            });
+          },
+          onNavigate: (dest) {
+            _closePopup();
+            Future.delayed(const Duration(milliseconds: 400), () {
+              if (!mounted) return;
+              _selectDestination(dest);
+            });
+          },
+        );
       case _PopupType.none:
         return const SizedBox.shrink();
     }

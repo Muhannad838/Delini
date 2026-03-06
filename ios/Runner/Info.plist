@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Delni needs microphone access for voice commands to help you navigate the hospital</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Delni uses speech recognition to understand your voice commands</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -300,6 +300,29 @@ class AppLocalizations {
       _t('Tap to upload floor plan image', 'اضغط لرفع صورة مخطط الطابق');
   String get removeFloor => _t('Remove', 'إزالة');
 
+  // Voice command
+  String get voiceAssistant => _t('Voice Assistant', 'المساعد الصوتي');
+  String get tapToSpeak => _t('Tap the mic and speak', 'اضغط على الميكروفون وتكلم');
+  String get listening => _t('Listening...', 'جاري الاستماع...');
+  String get understanding => _t('Understanding your request...', 'جاري فهم طلبك...');
+  String get voiceTip => _t(
+    'Say things like "Take me to the pharmacy" or "I want to visit room 201"',
+    'قل مثلاً "خذني للصيدلية" أو "أريد زيارة غرفة ٢٠١"',
+  );
+  String get tryAgain => _t('Try Again', 'حاول مرة أخرى');
+  String get openVisitorMode => _t('Open Visitor Mode', 'فتح وضع الزائر');
+  String get openEmergency => _t('Open Emergency', 'فتح الطوارئ');
+  String get openAppointments => _t('Open Appointments', 'فتح المواعيد');
+  String get showOnMap => _t('Show on Map', 'عرض على الخريطة');
+  String get voiceError => _t(
+    'Could not understand. Please try again.',
+    'لم أتمكن من الفهم. يرجى المحاولة مرة أخرى.',
+  );
+  String get micPermissionDenied => _t(
+    'Microphone access is needed for voice commands.',
+    'يلزم الوصول إلى الميكروفون لاستخدام الأوامر الصوتية.',
+  );
+
   String _t(String en, String ar) => language == 'ar' ? ar : en;
 }
 

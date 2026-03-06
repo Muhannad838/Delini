@@ -37,9 +37,11 @@ class PopupOverlay extends StatelessWidget {
                 color: Colors.black.withValues(alpha: 0.3 * animation.value),
               ),
             ),
-            // Centered popup window
+            // Centered popup window — absorb taps so they don't hit backdrop
             Center(
-              child: Transform.scale(
+              child: GestureDetector(
+                onTap: () {}, // absorb taps on popup area
+                child: Transform.scale(
                 scale: Curves.easeOutBack.transform(animation.value),
                 child: Opacity(
                   opacity: animation.value.clamp(0.0, 1.0),
@@ -103,6 +105,7 @@ class PopupOverlay extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
               ),
             ),
           ],
