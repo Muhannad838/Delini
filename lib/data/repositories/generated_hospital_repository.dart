@@ -14,7 +14,7 @@ class GeneratedHospitalRepository {
     final box = await _getBox();
     return box.values
         .map((json) => GeneratedHospital.fromJson(
-            jsonDecode(json) as Map<String, dynamic>))
+            Map<String, dynamic>.from(jsonDecode(json) as Map)))
         .toList();
   }
 
