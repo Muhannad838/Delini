@@ -32,7 +32,7 @@ class FloorPlanApiService {
           'Failed to analyze floor plan: ${response.statusCode} ${response.body}');
     }
 
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final json = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
     return GeneratedFloorPlan.fromJson(json);
   }
 }

@@ -18,11 +18,16 @@ final generatedHospitalsProvider =
 
 class GeneratedHospitalsNotifier
     extends AsyncNotifier<List<GeneratedHospital>> {
+  bool _initialLoadDone = false;
+
   @override
   Future<List<GeneratedHospital>> build() async {
     final repo = ref.read(generatedHospitalRepoProvider);
-    // Clear any previously generated hospitals on startup — keep only default 2
-    await repo.clearAll();
+    // Only clear on first app startup, not on subsequent rebuilds (e.g. after adding a hospital)
+    if (!_initialLoadDone) {
+      await repo.clearAll();
+      _initialLoadDone = true;
+    }
     final hospitals = await repo.getAll();
 
     // Register floor plans with the painter factory

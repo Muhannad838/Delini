@@ -44,8 +44,9 @@ Middleware logMiddleware() {
 void main() async {
   final apiKey = Platform.environment['ANTHROPIC_API_KEY'];
   if (apiKey == null || apiKey.isEmpty) {
-    print('WARNING: ANTHROPIC_API_KEY not set. /analyze-floor-plan will fail.');
+    print('WARNING: ANTHROPIC_API_KEY not set. /voice-command will fail.');
   }
+  // Gemini key no longer needed — using Claude for vision analysis
 
   final router = Router();
 
@@ -56,7 +57,7 @@ void main() async {
     );
   });
 
-  // Analyze floor plan
+  // Analyze floor plan — uses Claude Sonnet vision
   router.post('/analyze-floor-plan', (Request request) async {
     try {
       if (apiKey == null || apiKey.isEmpty) {
@@ -75,9 +76,10 @@ void main() async {
       final floorIndex = data['floor_index'] as int;
       final totalFloors = data['total_floors'] as int;
 
-      print('Analyzing floor plan: $hospitalName - $floorName (floor $floorIndex of $totalFloors)');
+      print('Analyzing floor plan (Claude): $hospitalName - $floorName (floor $floorIndex of $totalFloors)');
 
-      // Call Anthropic API
+      final mediaType = _guessMediaType(imageBase64);
+
       final anthropicResponse = await http.post(
         Uri.parse('https://api.anthropic.com/v1/messages'),
         headers: {
@@ -88,7 +90,6 @@ void main() async {
         body: jsonEncode({
           'model': 'claude-sonnet-4-20250514',
           'max_tokens': 4096,
-          'system': 'You are a hospital floor plan analyzer. Analyze the image and return ONLY valid JSON, no markdown fences, no explanation — just the JSON object.',
           'messages': [
             {
               'role': 'user',
@@ -97,13 +98,13 @@ void main() async {
                   'type': 'image',
                   'source': {
                     'type': 'base64',
-                    'media_type': _guessMediaType(imageBase64),
+                    'media_type': mediaType,
                     'data': imageBase64,
                   },
                 },
                 {
                   'type': 'text',
-                  'text': _buildPrompt(hospitalName, floorName, floorIndex, totalFloors),
+                  'text': 'Analyze the actual floor plan image carefully. Extract real room positions from what you SEE. Return ONLY valid JSON, no markdown fences, no explanation.\n\n${_buildPrompt(hospitalName, floorName, floorIndex, totalFloors)}',
                 },
               ],
             },
@@ -112,7 +113,7 @@ void main() async {
       );
 
       if (anthropicResponse.statusCode != 200) {
-        print('Anthropic API error: ${anthropicResponse.statusCode} ${anthropicResponse.body}');
+        print('Claude API error: ${anthropicResponse.statusCode} ${anthropicResponse.body}');
         return Response.internalServerError(
           body: jsonEncode({
             'error': 'Claude API error',
@@ -128,16 +129,17 @@ void main() async {
       final textBlock = content.firstWhere((b) => b['type'] == 'text');
       var responseText = textBlock['text'] as String;
 
-      // Strip markdown code fences if present
+      // Strip markdown fences just in case
       responseText = responseText.trim();
       if (responseText.startsWith('```')) {
         responseText = responseText.replaceFirst(RegExp(r'^```\w*\n?'), '');
         responseText = responseText.replaceFirst(RegExp(r'\n?```$'), '');
       }
 
-      // Parse and validate JSON
-      final floorPlanJson = jsonDecode(responseText);
+      final floorPlanJson = jsonDecode(responseText) as Map<String, dynamic>;
 
+      // Log the keys so we can debug missing fields
+      print('Claude response keys: ${floorPlanJson.keys.toList()}');
       print('Successfully analyzed: $hospitalName - $floorName (${(floorPlanJson['rooms'] as List).length} rooms)');
 
       return Response.ok(

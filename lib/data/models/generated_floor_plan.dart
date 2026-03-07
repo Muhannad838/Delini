@@ -124,12 +124,26 @@ class GeneratedFloorPlan {
   };
 
   factory GeneratedFloorPlan.fromJson(Map<String, dynamic> json) {
-    final outline = json['building_outline'] as Map<String, dynamic>;
-    final corridor = json['corridor'] as Map<String, dynamic>;
-    final entrance = json['entrance'] as Map<String, dynamic>;
-    final stairs = json['stairs'] as Map<String, dynamic>? ?? entrance;
+    // Defensive: Claude may use slightly different key names
+    final outlineRaw = json['building_outline'] ?? json['buildingOutline'];
+    final corridorRaw = json['corridor'];
+    final entranceRaw = json['entrance'];
+
+    if (outlineRaw == null || corridorRaw == null || entranceRaw == null) {
+      throw FormatException(
+        'Missing required fields in floor plan JSON. '
+        'Got keys: ${json.keys.toList()}. '
+        'building_outline=${outlineRaw != null}, corridor=${corridorRaw != null}, entrance=${entranceRaw != null}',
+      );
+    }
+
+    final outline = Map<String, dynamic>.from(outlineRaw as Map);
+    final corridor = Map<String, dynamic>.from(corridorRaw as Map);
+    final entrance = Map<String, dynamic>.from(entranceRaw as Map);
+    final stairsRaw = json['stairs'];
+    final stairs = stairsRaw != null ? Map<String, dynamic>.from(stairsRaw as Map) : entrance;
     final roomsList = (json['rooms'] as List)
-        .map((r) => GeneratedRoom.fromJson(r as Map<String, dynamic>))
+        .map((r) => GeneratedRoom.fromJson(Map<String, dynamic>.from(r as Map)))
         .toList();
 
     final rawPoints = json['building_outline_points'] as List?;
@@ -202,7 +216,7 @@ class GeneratedFloorData {
     id: json['id'] as int,
     nameEn: json['name_en'] as String,
     nameAr: json['name_ar'] as String,
-    floorPlan: GeneratedFloorPlan.fromJson(json['floor_plan'] as Map<String, dynamic>),
+    floorPlan: GeneratedFloorPlan.fromJson(Map<String, dynamic>.from(json['floor_plan'] as Map)),
     imageBase64: json['image_base64'] as String?,
   );
 }
@@ -247,7 +261,7 @@ class GeneratedHospital {
     addressEn: json['address_en'] as String? ?? '',
     addressAr: json['address_ar'] as String? ?? '',
     floors: (json['floors'] as List)
-        .map((f) => GeneratedFloorData.fromJson(f as Map<String, dynamic>))
+        .map((f) => GeneratedFloorData.fromJson(Map<String, dynamic>.from(f as Map)))
         .toList(),
   );
 }
