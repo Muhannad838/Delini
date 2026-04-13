@@ -62,7 +62,6 @@ class AppLocalizations {
   String get destination => _t('Destination', 'الوجهة');
   String get route => _t('Route', 'المسار');
   String get features => _t('Features', 'الميزات');
-  String get searchClinics => _t('Search Clinics', 'البحث عن العيادات');
   String get visitPatient => _t('Visit Patient', 'زيارة مريض');
   String get myAppointments => _t('My Appointments', 'مواعيدي');
   String get emergencyNav => _t('Emergency Navigation', 'الملاحة في حالات الطوارئ');
@@ -90,8 +89,6 @@ class AppLocalizations {
       _t('Room not found. Please check the room number.',
           'الغرفة غير موجودة. يرجى التحقق من رقم الغرفة.');
   String get quickAccess => _t('Quick access:', 'وصول سريع:');
-  String get manageAppointments =>
-      _t('Manage your hospital appointments', 'إدارة مواعيد المستشفى الخاصة بك');
   String get navigatingToAppointment =>
       _t('Navigating to your appointment', 'الملاحة إلى موعدك');
   String get noSlotsForDate =>
@@ -140,14 +137,6 @@ class AppLocalizations {
   String get madeWithLove =>
       _t('Made with love for better hospital navigation',
           'صنع بحب لتحسين التنقل في المستشفيات');
-  String get findClinics =>
-      _t('Find clinics, departments, and rooms', 'ابحث عن العيادات والأقسام والغرف');
-  String get navigateToRooms =>
-      _t('Navigate to patient rooms easily', 'انتقل إلى غرف المرضى بسهولة');
-  String get manageAndNavigate =>
-      _t('Manage and navigate to appointments', 'إدارة المواعيد والانتقال إليها');
-  String get quickRouteToER =>
-      _t('Quick route to emergency department', 'طريق سريع إلى قسم الطوارئ');
   String get pilotReady =>
       _t('Pilot-ready navigation system for hospitals',
           'نظام ملاحة جاهز للتجربة في المستشفيات');
@@ -168,16 +157,6 @@ class AppLocalizations {
   String destinationOnFloor(String floorName) =>
       _t('Destination is on $floorName', 'الوجهة في $floorName');
 
-  // Home screen
-  String get appTitle => _t('Delni', 'دلني');
-  String get appTagline =>
-      _t('Navigate Hospitals with Ease', 'التنقل في المستشفيات بسهولة');
-  String get searchClinicsDesc =>
-      _t('Find clinics, departments, and rooms', 'ابحث عن العيادات والأقسام والغرف');
-  String get visitPatientDesc =>
-      _t('Navigate to patient rooms easily', 'انتقل إلى غرف المرضى بسهولة');
-  String get myAppointmentsDesc =>
-      _t('Manage and navigate to appointments', 'إدارة المواعيد والانتقال إليها');
 
   // Settings screen
   String get darkModeDesc =>
